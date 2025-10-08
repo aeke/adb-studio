@@ -33,6 +33,7 @@ pub struct AppState {
 pub fn App() -> Element {
     let mut app_state = use_context_provider(|| Signal::new(AppState::default()));
     let mut current_view = use_signal(|| View::Dashboard);
+    let mut alert_message = use_signal(|| String::new());
     let mut settings = use_context_provider(|| {
         Signal::new(load::<AdbStudioSettings>("adb-studio", None).unwrap_or_default())
     });
@@ -47,6 +48,9 @@ pub fn App() -> Element {
     });
 
     rsx! {
+        if !alert_message.read().is_empty() {
+            div { class: "alert-message", "{alert_message}" }
+        }
         div {
             class: if settings.read().dark_mode { "app" } else { "app light-theme" },
             style: "height: 100vh;",
@@ -55,11 +59,76 @@ pub fn App() -> Element {
                 nav {
                     button { onclick: move |_| current_view.set(View::Dashboard), i { class: "fas fa-chart-line" } "Dashboard" }
                     button { onclick: move |_| current_view.set(View::Devices), i { class: "fas fa-mobile-alt" } "Devices" }
-                    button { onclick: move |_| current_view.set(View::Files), i { class: "fas fa-folder" } "Files" }
-                    button { onclick: move |_| current_view.set(View::Terminal), i { class: "fas fa-terminal" } "Terminal" }
-                    button { onclick: move |_| current_view.set(View::Apps), i { class: "fas fa-th" } "Apps" }
-                    button { onclick: move |_| current_view.set(View::Media), i { class: "fas fa-photo-video" } "Media" }
-                    button { onclick: move |_| current_view.set(View::Logs), i { class: "fas fa-file-alt" } "Logs" }
+                    button { 
+                        onclick: move |_| {
+                            if app_state.read().selected_device.is_some() {
+                                current_view.set(View::Files);
+                            } else {
+                                alert_message.set("Please select a device first".to_string());
+                                spawn(async move {
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                                    alert_message.set(String::new());
+                                });
+                            }
+                        },
+                        i { class: "fas fa-folder" } "Files" 
+                    }
+                    button { 
+                        onclick: move |_| {
+                            if app_state.read().selected_device.is_some() {
+                                current_view.set(View::Terminal);
+                            } else {
+                                alert_message.set("Please select a device first".to_string());
+                                spawn(async move {
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                                    alert_message.set(String::new());
+                                });
+                            }
+                        },
+                        i { class: "fas fa-terminal" } "Terminal" 
+                    }
+                    button { 
+                        onclick: move |_| {
+                            if app_state.read().selected_device.is_some() {
+                                current_view.set(View::Apps);
+                            } else {
+                                alert_message.set("Please select a device first".to_string());
+                                spawn(async move {
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                                    alert_message.set(String::new());
+                                });
+                            }
+                        },
+                        i { class: "fas fa-th" } "Apps" 
+                    }
+                    button { 
+                        onclick: move |_| {
+                            if app_state.read().selected_device.is_some() {
+                                current_view.set(View::Media);
+                            } else {
+                                alert_message.set("Please select a device first".to_string());
+                                spawn(async move {
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                                    alert_message.set(String::new());
+                                });
+                            }
+                        },
+                        i { class: "fas fa-photo-video" } "Media" 
+                    }
+                    button { 
+                        onclick: move |_| {
+                            if app_state.read().selected_device.is_some() {
+                                current_view.set(View::Logs);
+                            } else {
+                                alert_message.set("Please select a device first".to_string());
+                                spawn(async move {
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                                    alert_message.set(String::new());
+                                });
+                            }
+                        },
+                        i { class: "fas fa-file-alt" } "Logs" 
+                    }
                     button { onclick: move |_| current_view.set(View::Settings), i { class: "fas fa-cog" } "Settings" }
                 }
             }
@@ -74,9 +143,40 @@ pub fn App() -> Element {
                         i { class: if settings.read().dark_mode { "fas fa-moon" } else { "fas fa-sun" } }
                         if settings.read().dark_mode { "Dark" } else { "Light" }
                     }
-                    span {
-                        i { class: "fas fa-circle", style: "color: var(--success-color); font-size: 0.6rem;" }
-                        "{app_state.read().devices.len()} devices"
+                    div { style: "margin-left: auto; display: flex; align-items: center; gap: 12px;",
+                        if !app_state.read().devices.is_empty() {
+                            div { style: "position: relative;",
+                                select {
+                                    class: "btn btn-secondary",
+                                    style: "min-width: 220px; padding-right: 32px; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none;",
+                                    value: app_state.read().selected_device.as_ref().map(|d| d.serial.as_str()).unwrap_or(""),
+                                    onchange: move |evt| {
+                                        let serial = evt.value();
+                                        if !serial.is_empty() {
+                                            let devices = app_state.read().devices.clone();
+                                            if let Some(device) = devices.iter().find(|d| d.serial == serial) {
+                                                app_state.write().selected_device = Some(device.clone());
+                                            }
+                                        }
+                                    },
+                                    option { value: "", "Select Device" }
+                                    for device in app_state.read().devices.clone().iter() {
+                                        option {
+                                            value: "{device.serial}",
+                                            "{device.model} ({device.serial})"
+                                        }
+                                    }
+                                }
+                                i { 
+                                    class: "fas fa-chevron-down",
+                                    style: "position: absolute; right: 12px; top: 35%; transform: translateY(-25%); pointer-events: none; font-size: 0.75rem; color: var(--primary-text);"
+                                }
+                            }
+                        }
+                        span {
+                            i { class: "fas fa-circle", style: "color: var(--success-color); font-size: 0.6rem;" }
+                            "{app_state.read().devices.len()} devices"
+                        }
                     }
                 }
                 div { class: "content-area",
@@ -137,23 +237,58 @@ pub fn App() -> Element {
                                     i { class: "fas fa-mobile-alt" }
                                     h4 { "Manage Devices" }
                                 }
-                                div { class: "quick-action-card", onclick: move |_| current_view.set(View::Files),
+                                div { 
+                                    class: "quick-action-card",
+                                    style: if app_state.read().selected_device.is_none() { "opacity: 0.5; cursor: not-allowed;" } else { "" },
+                                    onclick: move |_| {
+                                        if app_state.read().selected_device.is_some() {
+                                            current_view.set(View::Files);
+                                        }
+                                    },
                                     i { class: "fas fa-folder" }
                                     h4 { "File Transfer" }
                                 }
-                                div { class: "quick-action-card", onclick: move |_| current_view.set(View::Apps),
+                                div { 
+                                    class: "quick-action-card",
+                                    style: if app_state.read().selected_device.is_none() { "opacity: 0.5; cursor: not-allowed;" } else { "" },
+                                    onclick: move |_| {
+                                        if app_state.read().selected_device.is_some() {
+                                            current_view.set(View::Apps);
+                                        }
+                                    },
                                     i { class: "fas fa-th" }
                                     h4 { "App Manager" }
                                 }
-                                div { class: "quick-action-card", onclick: move |_| current_view.set(View::Terminal),
+                                div { 
+                                    class: "quick-action-card",
+                                    style: if app_state.read().selected_device.is_none() { "opacity: 0.5; cursor: not-allowed;" } else { "" },
+                                    onclick: move |_| {
+                                        if app_state.read().selected_device.is_some() {
+                                            current_view.set(View::Terminal);
+                                        }
+                                    },
                                     i { class: "fas fa-terminal" }
                                     h4 { "Terminal" }
                                 }
-                                div { class: "quick-action-card", onclick: move |_| current_view.set(View::Media),
+                                div { 
+                                    class: "quick-action-card",
+                                    style: if app_state.read().selected_device.is_none() { "opacity: 0.5; cursor: not-allowed;" } else { "" },
+                                    onclick: move |_| {
+                                        if app_state.read().selected_device.is_some() {
+                                            current_view.set(View::Media);
+                                        }
+                                    },
                                     i { class: "fas fa-photo-video" }
                                     h4 { "Screenshots" }
                                 }
-                                div { class: "quick-action-card", onclick: move |_| current_view.set(View::Logs),
+                                div { 
+                                    class: "quick-action-card",
+                                    style: if app_state.read().selected_device.is_none() { "opacity: 0.5; cursor: not-allowed;" } else { "" },
+                                    onclick: move |_| {
+                                        if app_state.read().selected_device.is_some() {
+                                            current_view.set(View::Logs);
+                                        }
+                                    },
                                     i { class: "fas fa-file-alt" }
                                     h4 { "View Logs" }
                                 }

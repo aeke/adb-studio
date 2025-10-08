@@ -173,7 +173,6 @@ pub async fn adb_install(settings: &AdbStudioSettings, serial: &str, apk_path: &
     }
 }
 
-#[allow(dead_code)]
 pub async fn adb_uninstall(settings: &AdbStudioSettings, serial: &str, package_name: &str) -> Result<String, String> {
     let output = get_adb_command(settings)
         .arg("-s")
