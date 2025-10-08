@@ -85,7 +85,6 @@ jobs:
           </plist>
           EOF
 
-          echo "🔏 Ad-hoc signing to bypass Gatekeeper..."
           codesign --force --deep --sign - "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
           DMG_TEMP="dist/dmg_temp"
@@ -93,32 +92,11 @@ jobs:
           cp -R "$APP_BUNDLE" "$DMG_TEMP/"
           ln -s /Applications "$DMG_TEMP/Applications"
 
-          echo '
-            tell application "Finder"
-              tell disk "'$APP_NAME'"
-                open
-                set current view of container window to icon view
-                set toolbar visible of container window to false
-                set statusbar visible of container window to false
-                set the bounds of container window to {100, 100, 680, 400}
-                set theViewOptions to the icon view options of container window
-                set arrangement of theViewOptions to not arranged
-                set icon size of theViewOptions to 100
-                set position of item "'$APP_NAME'.app" of container window to {140, 150}
-                set position of item "Applications" of container window to {400, 150}
-                update without registering applications
-                delay 1
-                close
-              end tell
-            end tell
-          ' > dist/dmg_setup.applescript
-
           hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_PATH"
-          hdiutil attach "$DMG_PATH" -mountpoint /Volumes/"$APP_NAME"
-          osascript dist/dmg_setup.applescript || true
-          hdiutil detach /Volumes/"$APP_NAME"
 
-          rm -rf "$DMG_TEMP" "$APP_BUNDLE" dist/dmg_setup.applescript
+          rm -rf "$DMG_TEMP" "$APP_BUNDLE"
+
+          echo "✅ macOS DMG created at $DMG_PATH"
 
       - name: Package Windows executable
         if: matrix.os == 'windows-latest'
@@ -132,10 +110,8 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: adb_studio_${{ env.VERSION }}_${{ runner.os }}
-          path: |
-            dist/*.exe
-            dist/*.dmg
+          name: adb_studio_artifacts
+          path: dist/*
 
   release:
     name: Create GitHub Release
@@ -146,7 +122,11 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          name: adb_studio_artifacts
           path: dist
+
+      - name: List downloaded files
+        run: ls -R dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
