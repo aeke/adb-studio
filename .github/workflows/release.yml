@@ -3,7 +3,7 @@ name: Build & Release (Rust Cross-Platform)
 on:
   push:
     tags:
-      - "v*"  # Örn: v1.0.0
+      - "v*"
 
 jobs:
   build:
@@ -51,6 +51,8 @@ jobs:
             libpango1.0-dev \
             libatk1.0-dev \
             libcairo2-dev \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev \
             appstream \
             fuse \
             zsync
