@@ -88,6 +88,9 @@ jobs:
 
           codesign --force --deep --sign - "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
+          # 💡 Remove quarantine attribute before packaging into DMG
+          xattr -dr com.apple.quarantine "$APP_BUNDLE"
+
           DMG_TEMP="dist/dmg_temp"
           mkdir -p "$DMG_TEMP"
           cp -R "$APP_BUNDLE" "$DMG_TEMP/"

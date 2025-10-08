@@ -19,7 +19,39 @@ mod app;
 use app::App;
 use dioxus::prelude::*;
 
+#[cfg(target_os = "macos")]
+fn fix_path() {
+    use std::env;
+    
+    let current_path = env::var("PATH").unwrap_or_default();
+    let home = env::var("HOME").unwrap_or_default();
+    
+    let mut paths_to_add = Vec::new();
+    
+    if !current_path.contains("/usr/local/bin") {
+        paths_to_add.push("/usr/local/bin");
+    }
+    if !current_path.contains("/opt/homebrew/bin") {
+        paths_to_add.push("/opt/homebrew/bin");
+    }
+    
+    let android_sdk_path = format!("{}/Library/Android/sdk/platform-tools", home);
+    if !current_path.contains(&android_sdk_path) {
+        paths_to_add.push(&android_sdk_path);
+    }
+    
+    if !paths_to_add.is_empty() {
+        let new_path = format!("{}:{}", paths_to_add.join(":"), current_path);
+        env::set_var("PATH", new_path);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn fix_path() {}
+
 fn main() {
+    fix_path();
+    
     dioxus_logger::init(tracing::Level::INFO).expect("failed to init logger");
     
     let icon_bytes = include_bytes!("../assets/appicon.png");
