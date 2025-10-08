@@ -3,15 +3,20 @@ name = "adb_studio-ui"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 dioxus = { version = "0.6.0-alpha.0", features = ["desktop"] }
+dioxus-desktop = { version = "0.6.0-alpha.0", default-features = false, features = [
+  "tokio",
+] }
 dioxus-logger = "0.6"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
 rfd = "0.14"
 confy = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-tokio-stream = "0.1"
 image = "0.25.8"
+
+[patch.crates-io]
+ashpd = { version = "0.8.1", default-features = false, features = ["tokio"] }
