@@ -47,7 +47,8 @@ jobs:
       - name: Prepare dist directory
         run: mkdir -p dist
 
-      - name: Package macOS .app bundle
+      # ----------------- macOS -----------------
+      - name: Package macOS .app bundle with Finder layout
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
@@ -92,12 +93,35 @@ jobs:
           cp -R "$APP_BUNDLE" "$DMG_TEMP/"
           ln -s /Applications "$DMG_TEMP/Applications"
 
+          echo '
+            tell application "Finder"
+              tell disk "'$APP_NAME'"
+                open
+                set current view of container window to icon view
+                set toolbar visible of container window to false
+                set statusbar visible of container window to false
+                set the bounds of container window to {100, 100, 680, 400}
+                set theViewOptions to the icon view options of container window
+                set arrangement of theViewOptions to not arranged
+                set icon size of theViewOptions to 100
+                set position of item "'$APP_NAME'.app" of container window to {140, 150}
+                set position of item "Applications" of container window to {400, 150}
+                update without registering applications
+                delay 1
+                close
+              end tell
+            end tell
+          ' > dist/dmg_setup.applescript
+
           hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_PATH"
+          hdiutil attach "$DMG_PATH" -mountpoint /Volumes/"$APP_NAME"
+          osascript dist/dmg_setup.applescript || true
+          hdiutil detach /Volumes/"$APP_NAME"
 
-          rm -rf "$DMG_TEMP" "$APP_BUNDLE"
+          rm -rf "$DMG_TEMP" "$APP_BUNDLE" dist/dmg_setup.applescript
+          echo "✅ macOS DMG created with drag-and-drop installer at $DMG_PATH"
 
-          echo "✅ macOS DMG created at $DMG_PATH"
-
+      # ----------------- Windows -----------------
       - name: Package Windows executable
         if: matrix.os == 'windows-latest'
         shell: pwsh
@@ -107,32 +131,41 @@ jobs:
           Copy-Item target\release\adb_studio-ui.exe "dist\ADB Studio.exe"
           Write-Host "✅ Windows executable named 'ADB Studio.exe' created successfully"
 
-      - name: Upload artifacts
+      - name: Upload OS-specific artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: adb_studio_artifacts
+          name: adb_studio_artifacts_${{ matrix.os }}
           path: dist/*
 
+  # ----------------- Release Job -----------------
   release:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download all artifacts
+      - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
-          name: adb_studio_artifacts
-          path: dist
+          name: adb_studio_artifacts_macos-latest
+          path: dist/macos
+        continue-on-error: true
 
-      - name: List downloaded files
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: adb_studio_artifacts_windows-latest
+          path: dist/windows
+        continue-on-error: true
+
+      - name: List all release files
         run: ls -R dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*.exe
-            dist/*.dmg
+            dist/windows/*.exe
+            dist/macos/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
