@@ -1,0 +1,11 @@
+[application]
+name = "adb_studio"
+
+[desktop.app]
+
+[desktop.window]
+width = 1024
+height = 768
+
+[desktop.head]
+stylesheets = ["assets/styles.css"]
