@@ -1,12 +1,12 @@
 name: Build and Release
 
-permissions:
-  contents: write
-
 on:
   push:
     tags:
       - "v*.*.*"
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -19,7 +19,7 @@ jobs:
           - os: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Extract version from tag
@@ -41,22 +41,68 @@ jobs:
       - name: Update Cargo.lock
         run: cargo update
 
-      - name: Build release
+      - name: Build project (Release)
         run: cargo build --release
 
-      - name: Package binary
+      - name: Prepare dist directory
+        run: mkdir -p dist
+
+      # 🧩 macOS: .app + .dmg + ikon
+      - name: Package macOS .app bundle
+        if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          mkdir -p dist
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            hdiutil create "dist/adb_studio_${{ env.VERSION }}_mac.dmg" \
-              -srcfolder target/release/adb_studio-ui \
-              -ov -format UDZO
-          else
-            powershell Compress-Archive -Path target/release/adb_studio-ui.exe -DestinationPath "dist/adb_studio_${{ env.VERSION }}_windows.zip"
-          fi
+          APP_NAME="ADB Studio"
+          ICON_SRC="assets/appicon.png"
+          APP_BUNDLE="dist/$APP_NAME.app"
 
-      - name: Upload artifact
+          echo "📦 Creating macOS app bundle..."
+          mkdir -p "$APP_BUNDLE/Contents/MacOS"
+          mkdir -p "$APP_BUNDLE/Contents/Resources"
+
+          cp target/release/adb_studio-ui "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+          cp "$ICON_SRC" "$APP_BUNDLE/Contents/Resources/AppIcon.png"
+
+          cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleDisplayName</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleExecutable</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleIconFile</key>
+            <string>AppIcon.png</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.example.adbstudio</string>
+            <key>CFBundleVersion</key>
+            <string>${{ env.VERSION }}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+          </dict>
+          </plist>
+          EOF
+
+          echo "💿 Creating DMG..."
+          hdiutil create "dist/adb_studio_${{ env.VERSION }}_mac.dmg" \
+            -volname "$APP_NAME" \
+            -srcfolder "$APP_BUNDLE" \
+            -ov -format UDZO
+
+      # 🧩 Windows: doğrudan .exe, adı "ADB Studio.exe"
+      - name: Package Windows executable
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item target\release\adb_studio-ui.exe "dist\ADB Studio.exe"
+          Write-Host "✅ Windows executable named 'ADB Studio.exe' created successfully"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: adb_studio_${{ env.VERSION }}_${{ runner.os }}
@@ -66,6 +112,7 @@ jobs:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
