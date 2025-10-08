@@ -1,54 +1,42 @@
-name: Build and Release
+name: Build and Release ADB Studio
 
 on:
   push:
     tags:
       - "v*.*.*"
 
-permissions:
-  contents: write
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build for ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: macos-latest
+            target: x86_64-apple-darwin
           - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Cargo
-        uses: actions/cache@v3
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
 
-      - name: Update Cargo.lock
-        run: cargo update
+      - name: Build Release
+        run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Build project (Release)
-        run: cargo build --release
-
-      - name: Prepare dist directory
+      - name: Prepare dist folder
         run: mkdir -p dist
 
-      # ----------------- macOS -----------------
-      - name: Package macOS .app bundle with Finder layout
+      - name: Package macOS .app bundle and DMG
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
@@ -60,7 +48,7 @@ jobs:
           mkdir -p "$APP_BUNDLE/Contents/MacOS"
           mkdir -p "$APP_BUNDLE/Contents/Resources"
 
-          cp target/release/adb_studio-ui "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+          cp target/${{ matrix.target }}/release/adb_studio-ui "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
           cp "$ICON_SRC" "$APP_BUNDLE/Contents/Resources/AppIcon.png"
 
           cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
@@ -77,9 +65,9 @@ jobs:
             <key>CFBundleIconFile</key>
             <string>AppIcon.png</string>
             <key>CFBundleIdentifier</key>
-            <string>com.example.adbstudio</string>
+            <string>com.adbstudio.app</string>
             <key>CFBundleVersion</key>
-            <string>${{ env.VERSION }}</string>
+            <string>${GITHUB_REF_NAME}</string>
             <key>CFBundlePackageType</key>
             <string>APPL</string>
           </dict>
@@ -87,8 +75,6 @@ jobs:
           EOF
 
           codesign --force --deep --sign - "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-
-          # 💡 Remove quarantine attribute before packaging into DMG
           xattr -dr com.apple.quarantine "$APP_BUNDLE"
 
           DMG_TEMP="dist/dmg_temp"
@@ -121,54 +107,42 @@ jobs:
           osascript dist/dmg_setup.applescript || true
           hdiutil detach /Volumes/"$APP_NAME"
 
-          rm -rf "$DMG_TEMP" "$APP_BUNDLE" dist/dmg_setup.applescript
-          echo "✅ macOS DMG created with drag-and-drop installer at $DMG_PATH"
+          rm -rf "$DMG_TEMP" dist/dmg_setup.applescript
+          echo "✅ DMG created: $DMG_PATH"
 
-      # ----------------- Windows -----------------
-      - name: Package Windows executable
+      - name: Package Windows EXE
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item target\release\adb_studio-ui.exe "dist\ADB Studio.exe"
-          Write-Host "✅ Windows executable named 'ADB Studio.exe' created successfully"
+          $exePath = "target\${{ matrix.target }}\release\adb_studio-ui.exe"
+          $distExe = "dist\ADB Studio.exe"
+          Copy-Item $exePath $distExe
+          Write-Host "✅ Windows EXE created at $distExe"
 
-      - name: Upload OS-specific artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: adb_studio_artifacts_${{ matrix.os }}
-          path: dist/*
+          name: ADB_Studio_${{ matrix.os }}
+          path: dist
 
-  # ----------------- Release Job -----------------
   release:
-    name: Create GitHub Release
-    needs: build
     runs-on: ubuntu-latest
-
+    needs: build
     steps:
-      - name: Download macOS artifact
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: adb_studio_artifacts_macos-latest
-          path: dist/macos
-        continue-on-error: true
-
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: adb_studio_artifacts_windows-latest
-          path: dist/windows
-        continue-on-error: true
-
-      - name: List all release files
-        run: ls -R dist
+          path: dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/windows/*.exe
-            dist/macos/*.dmg
+            dist/**/ADB Studio.dmg
+            dist/**/ADB Studio.exe
+          tag_name: ${{ github.ref_name }}
+          name: "ADB Studio ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
