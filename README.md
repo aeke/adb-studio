@@ -1,6 +1,6 @@
 # ADB Studio
 
-Modern, cross-platform Android Debug Bridge (ADB) GUI application built with Rust, Dioxus, and Tauri.
+Modern, cross-platform Android Debug Bridge (ADB) GUI application built with Rust and Dioxus.
 
 ## Features
 
@@ -16,8 +16,7 @@ Modern, cross-platform Android Debug Bridge (ADB) GUI application built with Rus
 ## Tech Stack
 
 - **Rust**: Core application logic
-- **Dioxus**: Reactive UI framework
-- **Tauri**: Desktop application framework
+- **Dioxus**: Reactive UI framework and desktop application
 - **ADB**: Android Debug Bridge integration
 - **Font Awesome**: Vector icons
 
@@ -56,7 +55,7 @@ Settings can be configured in the Settings page:
 
 ### Recommended IDE Setup
 
-[VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) + [Dioxus](https://marketplace.visualstudio.com/items?itemName=DioxusLabs.dioxus)
+[VS Code](https://code.visualstudio.com/) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) + [Dioxus](https://marketplace.visualstudio.com/items?itemName=DioxusLabs.dioxus)
 
 ### Project Structure
 
