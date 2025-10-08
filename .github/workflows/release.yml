@@ -1,0 +1,142 @@
+name: Build & Release (Rust Cross-Platform)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build for ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "Windows"
+            os: windows-latest
+            artifact: "adb_studio.exe"
+          - platform: "Linux"
+            os: ubuntu-latest
+            artifact: "adb_studio"
+          - platform: "macOS"
+            os: macos-latest
+            artifact: "ADB Studio.dmg"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+      # ---- Windows Artifact ----
+      - name: Prepare Windows artifact
+        if: matrix.platform == 'Windows'
+        run: |
+          mkdir dist
+          copy target\release\adb_studio.exe dist\adb_studio.exe
+
+      # ---- Linux Artifact ----
+      - name: Prepare Linux artifact
+        if: matrix.platform == 'Linux'
+        run: |
+          mkdir -p dist
+          cp target/release/adb_studio dist/adb_studio
+          chmod +x dist/adb_studio
+
+      # ---- macOS Artifact (.app + .dmg) ----
+      - name: Prepare macOS .app bundle
+        if: matrix.platform == 'macOS'
+        run: |
+          APP_NAME="ADB Studio"
+          BIN_NAME="adb_studio"
+          mkdir -p "$APP_NAME.app/Contents/MacOS"
+          mkdir -p "$APP_NAME.app/Contents/Resources"
+          cp target/release/$BIN_NAME "$APP_NAME.app/Contents/MacOS/"
+
+          cat > "$APP_NAME.app/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleExecutable</key>
+            <string>$BIN_NAME</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.yourname.adbstudio</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.ref_name }}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleIconFile</key>
+            <string>appicon.icns</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Convert icon from assets/appicon.png to .icns
+        if: matrix.platform == 'macOS'
+        run: |
+          brew install create-dmg
+          ICON_PATH="assets/appicon.png"
+          if [ -f "$ICON_PATH" ]; then
+            mkdir -p AppIcon.iconset
+            sips -z 16 16     "$ICON_PATH" --out AppIcon.iconset/icon_16x16.png
+            sips -z 32 32     "$ICON_PATH" --out AppIcon.iconset/icon_16x16@2x.png
+            sips -z 32 32     "$ICON_PATH" --out AppIcon.iconset/icon_32x32.png
+            sips -z 64 64     "$ICON_PATH" --out AppIcon.iconset/icon_32x32@2x.png
+            sips -z 128 128   "$ICON_PATH" --out AppIcon.iconset/icon_128x128.png
+            sips -z 256 256   "$ICON_PATH" --out AppIcon.iconset/icon_128x128@2x.png
+            sips -z 256 256   "$ICON_PATH" --out AppIcon.iconset/icon_256x256.png
+            sips -z 512 512   "$ICON_PATH" --out AppIcon.iconset/icon_256x256@2x.png
+            sips -z 512 512   "$ICON_PATH" --out AppIcon.iconset/icon_512x512.png
+            cp "$ICON_PATH"   AppIcon.iconset/icon_512x512@2x.png
+            iconutil -c icns AppIcon.iconset -o appicon.icns
+            cp appicon.icns "ADB Studio.app/Contents/Resources/"
+          fi
+
+      - name: Create DMG
+        if: matrix.platform == 'macOS'
+        run: |
+          create-dmg \
+            --volname "ADB Studio Installer" \
+            --window-size 600 400 \
+            --icon "ADB Studio.app" 150 150 \
+            --app-drop-link 450 150 \
+            "ADB Studio.dmg" \
+            "ADB Studio.app"
+          mkdir -p dist
+          mv "ADB Studio.dmg" dist/
+
+      # ---- Upload artifact ----
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-artifacts
+          path: dist/*
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "ADB Studio ${{ github.ref_name }}"
+          files: |
+            artifacts/**/*.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
