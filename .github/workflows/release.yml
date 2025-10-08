@@ -47,7 +47,6 @@ jobs:
       - name: Prepare dist directory
         run: mkdir -p dist
 
-      # 🧩 macOS: .app + .dmg + ikon
       - name: Package macOS .app bundle
         if: matrix.os == 'macos-latest'
         shell: bash
@@ -55,8 +54,8 @@ jobs:
           APP_NAME="ADB Studio"
           ICON_SRC="assets/appicon.png"
           APP_BUNDLE="dist/$APP_NAME.app"
+          DMG_PATH="dist/$APP_NAME.dmg"
 
-          echo "📦 Creating macOS app bundle..."
           mkdir -p "$APP_BUNDLE/Contents/MacOS"
           mkdir -p "$APP_BUNDLE/Contents/Resources"
 
@@ -86,13 +85,41 @@ jobs:
           </plist>
           EOF
 
-          echo "💿 Creating DMG..."
-          hdiutil create "dist/adb_studio_${{ env.VERSION }}_mac.dmg" \
-            -volname "$APP_NAME" \
-            -srcfolder "$APP_BUNDLE" \
-            -ov -format UDZO
+          echo "🔏 Ad-hoc signing to bypass Gatekeeper..."
+          codesign --force --deep --sign - "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
-      # 🧩 Windows: doğrudan .exe, adı "ADB Studio.exe"
+          DMG_TEMP="dist/dmg_temp"
+          mkdir -p "$DMG_TEMP"
+          cp -R "$APP_BUNDLE" "$DMG_TEMP/"
+          ln -s /Applications "$DMG_TEMP/Applications"
+
+          echo '
+            tell application "Finder"
+              tell disk "'$APP_NAME'"
+                open
+                set current view of container window to icon view
+                set toolbar visible of container window to false
+                set statusbar visible of container window to false
+                set the bounds of container window to {100, 100, 680, 400}
+                set theViewOptions to the icon view options of container window
+                set arrangement of theViewOptions to not arranged
+                set icon size of theViewOptions to 100
+                set position of item "'$APP_NAME'.app" of container window to {140, 150}
+                set position of item "Applications" of container window to {400, 150}
+                update without registering applications
+                delay 1
+                close
+              end tell
+            end tell
+          ' > dist/dmg_setup.applescript
+
+          hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_PATH"
+          hdiutil attach "$DMG_PATH" -mountpoint /Volumes/"$APP_NAME"
+          osascript dist/dmg_setup.applescript || true
+          hdiutil detach /Volumes/"$APP_NAME"
+
+          rm -rf "$DMG_TEMP" "$APP_BUNDLE" dist/dmg_setup.applescript
+
       - name: Package Windows executable
         if: matrix.os == 'windows-latest'
         shell: pwsh
@@ -106,7 +133,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: adb_studio_${{ env.VERSION }}_${{ runner.os }}
-          path: dist/
+          path: |
+            dist/*.exe
+            dist/*.dmg
 
   release:
     name: Create GitHub Release
@@ -122,6 +151,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**
+          files: |
+            dist/*.exe
+            dist/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
