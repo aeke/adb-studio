@@ -3,7 +3,7 @@ name: Build & Release (Rust Cross-Platform)
 on:
   push:
     tags:
-      - "v*"  # Örn: v1.0.0 tag push edildiğinde çalışır
+      - "v*"  # Örn: v1.0.0
 
 jobs:
   build:
@@ -44,11 +44,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            build-essential \
+            pkg-config \
             libgtk-3-dev \
             libglib2.0-dev \
-            libgobject-2.0-dev \
-            pkg-config \
-            build-essential \
             libpango1.0-dev \
             libatk1.0-dev \
             libcairo2-dev \
@@ -58,7 +57,7 @@ jobs:
 
       # --- Build release binary ---
       - name: Build release binary
-        run: cargo build --release --locked
+        run: cargo build --release
 
       # --- List output (debugging) ---
       - name: List build output
@@ -167,8 +166,6 @@ jobs:
             cp "$ICON_PATH" AppIcon.iconset/icon_512x512@2x.png
             iconutil -c icns AppIcon.iconset -o appicon.icns
             cp appicon.icns "ADB Studio.app/Contents/Resources/"
-          else
-            echo "⚠️ Icon not found at $ICON_PATH"
           fi
 
       - name: Create DMG
@@ -184,7 +181,6 @@ jobs:
           mkdir -p dist
           mv "ADB Studio.dmg" dist/
           zip -r dist/adb_studio_macos.zip "ADB Studio.app"
-          echo "✅ Created dist/ADB Studio.dmg and adb_studio_macos.zip"
 
       # --- Upload artifacts ---
       - name: Upload build artifacts
