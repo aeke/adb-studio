@@ -217,7 +217,7 @@ pub fn AppManager() -> Element {
                     }
                 }
                 ul {
-                    style: "list-style: none; padding: 0;height: 70vh; overflow-y: auto;",
+                    style: "list-style: none; padding: 0; padding-bottom: 50px; max-height: calc(100vh - 280px); overflow-y: auto;",
                     for package in filtered_packages {
                         li { 
                             class: if selected_package() == Some(package.clone()) { "package-item selected" } else { "package-item" },

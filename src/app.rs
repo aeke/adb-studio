@@ -34,6 +34,7 @@ pub fn App() -> Element {
     let mut app_state = use_context_provider(|| Signal::new(AppState::default()));
     let mut current_view = use_signal(|| View::Dashboard);
     let mut alert_message = use_signal(|| String::new());
+    let mut dropdown_open = use_signal(|| false);
     let mut settings = use_context_provider(|| {
         Signal::new(load::<AdbStudioSettings>("adb-studio", None).unwrap_or_default())
     });
@@ -145,31 +146,37 @@ pub fn App() -> Element {
                     }
                     div { style: "margin-left: auto; display: flex; align-items: center; gap: 12px;",
                         if !app_state.read().devices.is_empty() {
-                            div { style: "position: relative;",
-                                select {
+                            div { 
+                                style: "position: relative;",
+                                button {
                                     class: "btn btn-secondary",
-                                    style: "min-width: 220px; padding-right: 32px; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none;",
-                                    value: app_state.read().selected_device.as_ref().map(|d| d.serial.as_str()).unwrap_or(""),
-                                    onchange: move |evt| {
-                                        let serial = evt.value();
-                                        if !serial.is_empty() {
-                                            let devices = app_state.read().devices.clone();
-                                            if let Some(device) = devices.iter().find(|d| d.serial == serial) {
-                                                app_state.write().selected_device = Some(device.clone());
-                                            }
-                                        }
-                                    },
-                                    option { value: "", "Select Device" }
-                                    for device in app_state.read().devices.clone().iter() {
-                                        option {
-                                            value: "{device.serial}",
-                                            "{device.model} ({device.serial})"
+                                    style: "min-width: auto; display: flex; align-items: center; justify-content: space-between;margin-top: 5px;",
+                                    onclick: move |_| dropdown_open.set(!dropdown_open()),
+                                    span {
+                                        if let Some(dev) = &app_state.read().selected_device {
+                                            "{dev.model} ({dev.serial})"
+                                        } else {
+                                            "Select Device"
                                         }
                                     }
+                                    i { class: "fas fa-chevron-down", style: "font-size: 0.75rem;" }
                                 }
-                                i { 
-                                    class: "fas fa-chevron-down",
-                                    style: "position: absolute; right: 12px; top: 35%; transform: translateY(-25%); pointer-events: none; font-size: 0.75rem; color: var(--primary-text);"
+                                if dropdown_open() {
+                                    div {
+                                        class: "dropdown-menu",
+                                        style: "position: absolute; top: 100%; right: 0; margin-top: 4px; min-width: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: var(--shadow-lg); z-index: 1000; max-height: 300px; overflow-y: auto;",
+                                        for device in app_state.read().devices.clone() {
+                                            div {
+                                                class: "dropdown-item",
+                                                style: "padding: 10px 14px; cursor: pointer; font-size: 0.875rem; color: var(--primary-text); transition: var(--transition);",
+                                                onclick: move |_| {
+                                                    app_state.write().selected_device = Some(device.clone());
+                                                    dropdown_open.set(false);
+                                                },
+                                                "{device.model} ({device.serial})"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
