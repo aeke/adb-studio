@@ -1,18 +1,20 @@
 [package]
 name = "adb_studio-ui"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-dioxus = { version = "0.6.3", features = ["desktop"] }
-dioxus-desktop = "0.6.3"
-dioxus-logger = "0.6"
+dioxus = { version = "0.7.0-rc.1", features = ["desktop"] }
+dioxus-desktop = "0.7.0-rc.1"
+dioxus-logger = "0.7.0-rc.1"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
-rfd = "0.14"
+rfd = { version = "0.14", default-features = false, features = ["tokio"] }
 confy = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 image = "0.25.8"
+
+[target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.8.1", default-features = false, features = ["tokio"] }
