@@ -76,3 +76,10 @@ src/
 ## License
 
 MIT
+
+
+## Screenshots
+
+![ADB Studio - Device list](assets/s1.jpeg)
+
+![ADB Studio - App Manager](assets/s2.jpeg)
