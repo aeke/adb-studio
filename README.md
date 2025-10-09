@@ -1,4 +1,8 @@
 # ADB Studio
+![Build](https://github.com/aeke/adb-studio/actions/workflows/release.yml/badge.svg)
+![License](https://img.shields.io/github/license/aeke/adb-studio?color=blue)
+![Stars](https://img.shields.io/github/stars/aeke/adb-studio?style=social)
+![Downloads](https://img.shields.io/github/downloads/aeke/adb-studio/total?label=downloads)
 
 Modern, cross-platform Android Debug Bridge (ADB) GUI application built with Rust and Dioxus.
 
