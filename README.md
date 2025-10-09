@@ -2,6 +2,12 @@
 
 Modern, cross-platform Android Debug Bridge (ADB) GUI application built with Rust and Dioxus.
 
+## Screenshots
+
+![ADB Studio - Device list](assets/s1.jpeg)
+
+![ADB Studio - App Manager](assets/s2.jpeg)
+
 ## Features
 
 - **Device Management**: Auto-detect and manage multiple Android devices
@@ -48,6 +54,7 @@ cargo run
 ## Configuration
 
 Settings can be configured in the Settings page:
+
 - Custom ADB path
 - Theme preference (Dark/Light)
 
@@ -76,10 +83,3 @@ src/
 ## License
 
 MIT
-
-
-## Screenshots
-
-![ADB Studio - Device list](assets/s1.jpeg)
-
-![ADB Studio - App Manager](assets/s2.jpeg)
