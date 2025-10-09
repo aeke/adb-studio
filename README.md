@@ -1,3 +1,5 @@
+> ⚡ Built with the help of AI — fully open source and cross-platform.
+
 # ADB Studio
 ![Build](https://github.com/aeke/adb-studio/actions/workflows/release.yml/badge.svg)
 ![Stars](https://img.shields.io/github/stars/aeke/adb-studio?style=social)
